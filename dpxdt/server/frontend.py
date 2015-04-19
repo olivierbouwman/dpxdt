@@ -19,6 +19,7 @@ import base64
 import datetime
 import hashlib
 import logging
+from urlparse import urlparse
 
 # Local libraries
 import flask
@@ -56,10 +57,13 @@ def homepage():
         auth.claim_invitations(current_user)
 
     build_list = operations.UserOps(current_user.get_id()).get_builds()
-
+    hostname = urlparse('//%s' % request.host).hostname
+    show_video_and_promo_text = 'localhost' in hostname or 'github' in hostname
+    show_video_and_promo_text = False
     return render_template(
         'home.html',
-        build_list=build_list)
+        build_list=build_list,
+        show_video_and_promo_text=show_video_and_promo_text)
 
 
 @app.route('/new', methods=['GET', 'POST'])
@@ -95,7 +99,7 @@ def new_build():
 def view_build():
     """Page for viewing all releases in a build."""
     build = g.build
-    page_size = 20
+    page_size = 10
     offset = request.args.get('offset', 0, type=int)
 
     ops = operations.BuildOps(build.id)
