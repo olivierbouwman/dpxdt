@@ -102,6 +102,11 @@ class Build(db.Model):
                              lazy='dynamic')
     send_email = db.Column(db.Boolean, default=True)
     email_alias = db.Column(db.String(255))
+    releases = db.relationship(
+        'Release',
+        lazy='joined',
+        join_depth=1,
+        order_by='desc(Release.created)')
 
     def is_owned_by(self, user_id):
         return self.owners.filter_by(id=user_id).first() is not None

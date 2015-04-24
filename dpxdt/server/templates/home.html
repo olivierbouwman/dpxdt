@@ -67,7 +67,14 @@ Depicted
                 {% endif %}
             </div>
             <div class="span3">
-                Created {{ build.created|timesince }}
+                {% with last_release = build.releases[0] %}
+                    {% if last_release %}
+                        Last run {{ last_release.created|timesince }}:
+                        <strong>{{ last_release.status }}</strong>
+                    {% else %}
+                        No runs yet, created {{ build.created|timesince }}
+                    {% endif %}
+                {% endwith %}
             </div>
         </div>
     {% endfor %}
