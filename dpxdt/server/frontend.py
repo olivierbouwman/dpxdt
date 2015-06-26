@@ -26,6 +26,7 @@ from flask import Flask, abort, g, redirect, render_template, request, url_for
 from flask.ext.login import (
     current_user, fresh_login_required, login_fresh, login_required)
 from flask.ext.wtf import Form
+from datetime import datetime, timedelta
 
 # Local modules
 from . import app
@@ -146,6 +147,67 @@ def view_build():
         next_offset=offset + page_size,
         last_offset=max(0, offset -  page_size))
 
+@app.route('/todelete') # example: /todelete?id=1
+@auth.build_access_required
+# move to api.py?
+def to_delete():
+
+    """work in progress - will eventually delete old releases, runs, and files to reduce storage needs"""
+    build = g.build
+    page_size = 1000 # number of releases to purge each batch run, what's a good number for this?
+    offset= 0
+    debug_string = ""
+
+    ops = operations.BuildOps(build.id)
+    _, candidate_list, _ = ops.get_candidates(page_size, offset)
+
+    for candidate in candidate_list:
+
+        # in stead of using a date, probably just keep x most recent releases for each build including the last 'Good' release
+        if (candidate.created < (datetime.now() - timedelta(days=0))):
+
+            _, run_list, _, _ = ops.get_release(candidate.name, candidate.number)
+
+            for run in run_list:
+
+                debug_string += "<br><br>id: " + str(build.id)
+                debug_string += "<br>number: " + str(candidate.number)
+                debug_string += "<br>name: " + str(candidate.name)
+                debug_string += "<br>test: " + str(run.name)
+                debug_string += "<br>sha1sum before: " + str(run.ref_image)
+                debug_string += "<br>sha1sum after: " + str(run.image)
+                debug_string += "<br>sha1sum diff: " + str(run.diff_image)
+
+                if run.image:
+                    debug_string += "<br>2DELETE AFTER"
+                    artifact = _delete_artifact(build, run.image)
+                    if artifact:
+                        if hasattr(artifact, 'id'):
+                            debug_string += "<br>artifact: " + str(artifact.id)
+                        if hasattr(artifact, 'owners'):
+                            # Implement database schema update with Alembic (http://skien.cc/blog/2014/01/31/adding-unique-contraints-after-the-fact-in-sqlalchemy/)
+                            debug_string += "<br>artifact owner: " + str(artifact.owners)
+
+                        db.session.delete(artifact)
+                        db.session.commit()
+
+                db.session.delete(run)
+                db.session.commit()
+
+        # db.session.delete(candidate)
+        # db.session.commit()
+
+    return debug_string
+
+def _delete_artifact(build, sha1sum):
+    # based on _save_artifact from api.py
+    # add _artifact_deleted as well?
+    # perhaps reuse _save_artifact code in stead of making this _delete_artifact
+    """Retrieves an artifact from the DB and returns it."""
+    artifact = models.Artifact.query.filter_by(id=sha1sum).first()
+    if hasattr(artifact, 'owners'):
+        artifact.owners.append(build)
+    return artifact
 
 @app.route('/release', methods=['GET', 'POST'])
 @auth.build_access_required

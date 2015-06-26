@@ -20,7 +20,8 @@ import datetime
 # Local modules
 from . import app
 from . import db
-
+from sqlalchemy import event
+from sqlalchemy.schema import UniqueConstraint
 
 class User(db.Model):
     """Represents a user who is authenticated in the system.
@@ -139,8 +140,8 @@ class Release(db.Model):
 artifact_ownership_table = db.Table(
     'artifact_ownership',
     db.Column('artifact', db.String(100), db.ForeignKey('artifact.id')),
-    db.Column('build_id', db.Integer, db.ForeignKey('build.id')))
-
+    db.Column('build_id', db.Integer, db.ForeignKey('build.id')),
+    db.UniqueConstraint('artifact', 'build_id'))
 
 class Artifact(db.Model):
     """Contains a single file uploaded by a diff worker."""
